@@ -1,0 +1,122 @@
+import os
+import re
+import socket
+import sys
+import netmiko
+from getpass import getpass
+from pprint import pprint
+import socket
+
+#returns a list of IP addresses pulled from the input
+def get_ip (input):
+	return(re.findall(r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)', input))
+
+#Over write existing document with data from FileVar	(creates doc if doesn't exist)
+def to_doc_a(file_name, FileVar):
+	f=open(file_name, 'a')
+	f.write(FileVar)
+	f.close()
+
+#Over write existing document with data from FileVar	(creates doc if doesn't exist)
+def to_doc_w(file_name, FileVar):
+	f=open(file_name, 'w')
+	f.write(FileVar)
+	f.close()
+
+#Reads in doc and returns list of lines
+def read_doc_list (file_name):
+	doc = []
+	for line in open(file_name, 'r').readlines():
+		doc.append(line)
+	return doc
+
+#Connect to Nexus device
+def make_connection_toNexus(ip, username, password):
+	try:
+		return netmiko.ConnectHandler(device_type='cisco_nxos', ip=ip, username=username, password=password)
+		return net_connect
+	except:
+		try:
+			return netmiko.ConnectHandler(device_type='cisco_ios_telnet', ip=ip, username=username, password=password)
+		except:
+			issue = ip + ", can't be ssh/telneted to"
+			to_doc_a("Issues.csv", issue)
+			to_doc_a("Issues.csv", '\n')
+			return None
+
+#Send command to device
+def send_command(net_connect,command):
+	return net_connect.send_command_expect(command)
+	
+#output header printed in cmd window
+def output_header(ip):
+	line1 = '\n' + '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!' + 'SCRIPT STARTED' + '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!' + '\n' + '!!!!!!!!!!!!!!!!!!!!!!!!!!!!DEVICE!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+	line2 = ip
+	line3 = '!!!!!!!!!!!!!!!!COMMAND OUTPUT!!!!!!!!!!!!'
+	output3 = line1 + '\n' + line2 + '\n' + line3 + '\n'
+	print(output3)
+	
+#Aci command and send to doc
+def aci_command_output_toFile(command_list, ip, username, password, documentfile):
+	for command in command_list:
+		output = make_connection_toNexus(ip, username, password)
+		output = send_command(output,command)
+		#print(output)
+		output = to_doc_w(documentfile, output)
+
+#Finds lines with tunnel in the name
+def pick_lines_w_tunnel(device_output, list):
+	for line in device_output:
+		if 'tunnel' in line:
+			list.append(line)
+	return(list)
+
+#Creates list of unique IP Addresses
+def grab_ip_from_list(list, final_ip_list):
+	for item in list:
+		output = get_ip(item)
+		if output not in final_ip_list:
+			final_ip_list.append(str(output))
+	return(final_ip_list)
+
+#Creds
+username = input("Username: ")
+# User needs to edit the following based on the ACI authentication Domain.
+aci_username = 'YourDomainHere\\'+ username
+# Get the password for the User
+password = getpass()
+
+# For now statically code the Target Leaf(s) host name or IP address...
+ACI_ips = ['Leaf2HostNameorIP', 'Leaf2HostNameorIP', 'LeafnHostNameorIP' ] 
+ACI_commands = ['show endpoint']
+outputfile = input("Output File Name: ")
+
+#clear document
+p = open(outputfile,"w")
+p.close()
+# clear Data2.txt
+Data2_clear = open('data2.txt', 'w')
+Data2_clear.close()
+
+#create lists for functions
+g = []
+ip_list = []
+final_ip_list = []
+
+for ip in ACI_ips:
+	output_header(ip)
+	aci_command_output_toFile(ACI_commands, ip, aci_username, password, 'ACI_Learned_endpoints.txt')
+	ACI_command_output = read_doc_list('ACI_Learned_endpoints.txt')
+	tunnel_lines = pick_lines_w_tunnel(ACI_command_output, g)
+	remote_endpoint_ips = grab_ip_from_list(tunnel_lines, final_ip_list)
+	#print(remote_endpoint_ips)
+	
+for line in remote_endpoint_ips:
+	if len(line) > 1:
+		b = line.replace("['","")
+		c = b.replace("']","")
+		d = c.replace('\n','')
+		if len(d) > 3:
+			to_doc_a(outputfile,str(d) + '\n')
+
+print('Script complete, check', outputfile, ' for results')
