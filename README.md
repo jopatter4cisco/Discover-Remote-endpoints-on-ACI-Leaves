@@ -5,7 +5,7 @@ A high level overview of what YOU WILL NEED is this:
  
 1. This Python script – grab a list of unique ip address from ‘show endpoint’ command
 2. NetMiko - which elegantly handles the ssh session for the leaf.
-3. Python Angry IP Scanner - Take the output from that script (data2.txt) and import into Angry IP Scanner
+3. Python Angry IP Scanner - Take the output from that script (OutPutFile) and import into Angry IP Scanner
  a. Angry IP scanner does threading – a huge benefit. (Python can also do threading but I haven’t mastered that yet…)
  b. You can export results from Angry IP Scanner to a CSV if you’d like to do further manipulation of the data
  c. At the end of the scanning, it will give results
